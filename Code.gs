@@ -10,6 +10,7 @@
 * (3) Accept the permissions (asking for access for your script to read/write to google drive)
 * (4) Run the lookup_all_google_drive_files_using_continuation_tokens() function (once, or set a trigger)
 * (5) Look in your google sheet as the function is running, and you should see results being inserted
+* (6) When the audit is complete, an email will be sent to the specified address so you can check the full sheet of data
 *
 * Extra Info: 
 * (1) Inserts "NULL" for applicable field values where owner cannot be determined (shared drives & gmail/chat attachments)
@@ -21,7 +22,8 @@
 * UPDATE THESE VARIABLES
 *
 *************************************************/
-
+// Comma-separated Email addresses of owner and any additional recipients for notification when the audit completes
+var NOTIFICATION_RECIPIENTS = "n_young@uncg.edu,usaussie@gmail.com";
 // Google Sheet URL that you have access to edit (should be blank to begin with)
 var GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/YOUR-URL-HERE/edit";
 // tab/sheet name to house results for everything in your Google Drive found in the audit
@@ -30,7 +32,6 @@ var GOOGLE_SHEET_RESULTS_TAB_NAME = "results";
 var GOOGLE_SHEET_FOLDER_TAB_NAME = "folders";
 // change TIMEOUT VALUE
 var TIMEOUT_VALUE_MS = 210000; // 3.5 mins (so we can run a trigger every 5 mins and be sure not to hit the appscript max execution time)
-
 
 /*
 ************************************************
@@ -51,8 +52,8 @@ function set_sheet_headers() {
   var folder_sheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_FOLDER_TAB_NAME);
   var results_sheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_RESULTS_TAB_NAME);
   
-  folder_sheet.appendRow(["FOLDER_ID", "FOLDER_URL", "FOLDER_NAME", "FILE_SIZE_BYTES", "FILE_ID"]);
-  results_sheet.appendRow(["ID", "URL", "NAME", "TYPE", "SIZE_BYTES", "CREATED", "LAST_UPDATED", "OWNER", "SHARING_ACCESS", "SHARING_PERMISSION", "PERMISSION_TYPE", "PERMITTED_EMAIL_ADDRESS"]);
+  folder_sheet.appendRow(["AUDIT_DATE", "FOLDER_ID", "FOLDER_URL", "FOLDER_NAME", "FILE_SIZE_BYTES", "FILE_ID"]);
+  results_sheet.appendRow(["AUDIT_DATE", "ID", "URL", "NAME", "TYPE", "SIZE_BYTES", "CREATED", "LAST_UPDATED", "OWNER", "SHARING_ACCESS", "SHARING_PERMISSION", "PERMISSION_TYPE", "PERMITTED_EMAIL_ADDRESS"]);
   
 }
 
@@ -155,25 +156,25 @@ function lookup_all_google_drive_files_using_continuation_tokens() {
     
     //write initial file info to sheet
     var ss = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_RESULTS_TAB_NAME);
-    ss.appendRow([id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'OWNER', ownerEmail]);
+    ss.appendRow([new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'OWNER', ownerEmail]);
     
     // write editor(s) to sheet if available
     var editors = thisFile.getEditors();
     for (var i = 0; i < editors.length; i++) {
-      ss.appendRow([id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'EDITOR', editors[i].getEmail()]);
+      ss.appendRow([new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'EDITOR', editors[i].getEmail()]);
     }
     
     // write viewer(s) to sheet if available
     var viewers = thisFile.getViewers();
     for (var i = 0; i < viewers.length; i++) {
-      ss.appendRow([id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'VIEWER', viewers[i].getEmail()]);
+      ss.appendRow([new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'VIEWER', viewers[i].getEmail()]);
     }
     
     // write folder(s) to sheet if available
     var foldersheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_FOLDER_TAB_NAME);
     while (parents.hasNext()) {
       var folder = parents.next();
-      foldersheet.appendRow([folder.getId(), folder.getUrl(), folder.getName(), id, size]);
+      foldersheet.appendRow([new Date(), folder.getId(), folder.getUrl(), folder.getName(), id, size]);
     }
     
     // Save our place by setting the token in our script properties
@@ -188,6 +189,23 @@ function lookup_all_google_drive_files_using_continuation_tokens() {
     }
     
   };
+  
+  if(!filesFromToken.hasNext()) {
+   
+    var templ = HtmlService
+      .createTemplateFromFile('email');
+  
+    templ.sheetUrl = GOOGLE_SHEET_URL;
+    
+    var message = templ.evaluate().getContent();
+    
+    MailApp.sendEmail({
+      to: NOTIFICATION_RECIPIENTS,
+      subject: 'Google Drive Access Audit Complete',
+      htmlBody: message
+    });
+    
+  }
   
 };
 
