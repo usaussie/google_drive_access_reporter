@@ -24,12 +24,12 @@
 
 // Google Sheet URL that you have access to edit (should be blank to begin with)
 var GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/YOUR-URL-HERE/edit";
-// tab/sheet name to house the list of File IDs for everything in your Google Drive
+// tab/sheet name to house results for everything in your Google Drive found in the audit
 var GOOGLE_SHEET_RESULTS_TAB_NAME = "results";
-// tab/sheet to house the summary info for all the files in your Google Drive
+// tab/sheet to house the folder info found in the audit
 var GOOGLE_SHEET_FOLDER_TAB_NAME = "folders";
 // change TIMEOUT VALUE
-var TIMEOUT_VALUE_MS = 270000; // 4.5 minutes
+var TIMEOUT_VALUE_MS = 210000; // 3.5 mins (so we can run a trigger every 5 mins and be sure not to hit the appscript max execution time)
 
 
 /*
