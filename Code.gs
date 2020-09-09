@@ -52,7 +52,7 @@ function set_sheet_headers() {
   var folder_sheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_FOLDER_TAB_NAME);
   var results_sheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_RESULTS_TAB_NAME);
   
-  folder_sheet.appendRow(["AUDIT_DATE", "FOLDER_ID", "FOLDER_URL", "FOLDER_NAME", "FILE_SIZE_BYTES", "FILE_ID"]);
+  folder_sheet.appendRow(["AUDIT_DATE", "FOLDER_ID", "FOLDER_URL", "FOLDER_NAME", "FILE_ID", "FILE_SIZE_BYTES"]);
   results_sheet.appendRow(["AUDIT_DATE", "ID", "URL", "NAME", "TYPE", "SIZE_BYTES", "CREATED", "LAST_UPDATED", "OWNER", "SHARING_ACCESS", "SHARING_PERMISSION", "PERMISSION_TYPE", "PERMITTED_EMAIL_ADDRESS"]);
   
 }
