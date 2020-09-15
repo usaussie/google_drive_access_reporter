@@ -26,6 +26,10 @@ This is a native AppScript solution...just a little appscript and HTML for the c
 * Run the lookup_all_google_drive_files_using_continuation_tokens() function (once, or set a trigger)
 * Look in your google sheet as the function is running, and you should see results being inserted 
 
+## After it finishes
+* The code prevents the loop from starting again after a single audit is complete. 
+* To run a 2nd audit, manually run the "delete_token_and_reset_run_history()" function, then you can restart the process again.
+* To automate this so that it just keeps running an audit over and over again, change the code from "true" to false" in this Code.gs line: scriptProperties.setProperty('alreadyRun', "true");
 
 <!-- FUTURE -->
 ## Future
