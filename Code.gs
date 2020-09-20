@@ -10,10 +10,10 @@
 * (3) Accept the permissions (asking for access for your script to read/write to google drive)
 * (4) Run the lookup_all_google_drive_files_using_continuation_tokens() function (once, or set a trigger)
 * (5) Look in your google sheet as the function is running, and you should see results being inserted
-* (6) When the audit is complete, an email will be sent to the specified address so you can check the full sheet of data
 *
 * Extra Info: 
 * (1) Inserts "NULL" for applicable field values where owner cannot be determined (shared drives & gmail/chat attachments)
+* (2) Once you've run it once, you will need to run the delete_token_and_reset_run_history() function in order to run another audit (maybe run this once every month if you want a new audit each month)
 *
 ************************************************/
 
@@ -23,15 +23,15 @@
 *
 *************************************************/
 // Comma-separated Email addresses of owner and any additional recipients for notification when the audit completes
-var NOTIFICATION_RECIPIENTS = "n_young@uncg.edu,usaussie@gmail.com";
+var NOTIFICATION_RECIPIENTS = "your-email-address@domain.com";
 // Google Sheet URL that you have access to edit (should be blank to begin with)
-var GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/YOUR-URL-HERE/edit";
-// tab/sheet name to house results for everything in your Google Drive found in the audit
+var GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/YOUR-GOOGLE-SHEET-URL/edit";
+// tab/sheet name to house the list of File IDs for everything in your Google Drive
 var GOOGLE_SHEET_RESULTS_TAB_NAME = "results";
-// tab/sheet to house the folder info found in the audit
-var GOOGLE_SHEET_FOLDER_TAB_NAME = "folders";
 // change TIMEOUT VALUE
-var TIMEOUT_VALUE_MS = 210000; // 3.5 mins (so we can run a trigger every 5 mins and be sure not to hit the appscript max execution time)
+//var TIMEOUT_VALUE_MS = 270000; // 4.5 minutes
+var TIMEOUT_VALUE_MS = 210000; // 3.5 mins (so we can run this every 5 minutes and not hit the 5 min timeout issue)
+
 
 /*
 ************************************************
@@ -49,11 +49,8 @@ var TIMEOUT_VALUE_MS = 210000; // 3.5 mins (so we can run a trigger every 5 mins
 */
 function set_sheet_headers() {
   
-  var folder_sheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_FOLDER_TAB_NAME);
   var results_sheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_RESULTS_TAB_NAME);
-  
-  folder_sheet.appendRow(["AUDIT_DATE", "FOLDER_ID", "FOLDER_URL", "FOLDER_NAME", "FILE_ID", "FILE_SIZE_BYTES"]);
-  results_sheet.appendRow(["AUDIT_DATE", "ID", "URL", "NAME", "TYPE", "SIZE_BYTES", "CREATED", "LAST_UPDATED", "OWNER", "SHARING_ACCESS", "SHARING_PERMISSION", "PERMISSION_TYPE", "PERMITTED_EMAIL_ADDRESS"]);
+  results_sheet.appendRow(["AUDIT_DATE", "ID", "URL", "NAME", "TYPE", "SIZE_BYTES", "CREATED", "LAST_UPDATED", "OWNER", "SHARING_ACCESS", "SHARING_PERMISSION", "PERMISSION_TYPE", "PERMITTED_EMAIL_ADDRESS", "FOLDER_ID", "FOLDER_URL", "FOLDER_NAME"]);
   
 }
 
@@ -115,6 +112,12 @@ function lookup_all_google_drive_files_using_continuation_tokens() {
   filesFromToken = DriveApp.continueFileIterator(scriptProperties.getProperty('continuationToken'));//Get the original files stored in the token
   files = null;//Delete the files that were stored in the original variable, to prove that the continuation token is working
   
+  
+  var newRow = [];
+  var rowsToWrite = [];
+  
+  var ss = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_RESULTS_TAB_NAME);
+  
   while (filesFromToken.hasNext()) {//If there is a next file, then continue looping
     
     if (isTimeUp_(start)) {
@@ -137,6 +140,14 @@ function lookup_all_google_drive_files_using_continuation_tokens() {
     var size = thisFile.getSize();
     var parents = thisFile.getParents();
     
+    // write folder(s) to sheet if available
+    while (parents.hasNext()) {
+      var folder = parents.next();
+      var folderId = folder.getId();
+      var folderUrl = folder.getUrl();
+      var folderName = folder.getName();
+    }
+    
     try {
       var ownerEmail = owner.getEmail();
     } catch (e) {
@@ -155,27 +166,30 @@ function lookup_all_google_drive_files_using_continuation_tokens() {
     }
     
     //write initial file info to sheet
-    var ss = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_RESULTS_TAB_NAME);
-    ss.appendRow([new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'OWNER', ownerEmail]);
+    var newRow = [new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'OWNER', ownerEmail, folderId, folderUrl, folderName];
+    
+    //ss.appendRow(newRow);
+    
+    // add to row array instead of append because append is SLOOOOOWWWWW
+    rowsToWrite.push(newRow);
     
     // write editor(s) to sheet if available
     var editors = thisFile.getEditors();
     for (var i = 0; i < editors.length; i++) {
-      ss.appendRow([new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'EDITOR', editors[i].getEmail()]);
+      
+      var newEditorRow = [new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'EDITOR', editors[i].getEmail(), folderId, folderUrl, folderName];
+      //ss.appendRow(newFolderRow);
+      rowsToWrite.push(newEditorRow);
     }
     
     // write viewer(s) to sheet if available
     var viewers = thisFile.getViewers();
     for (var i = 0; i < viewers.length; i++) {
-      ss.appendRow([new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'VIEWER', viewers[i].getEmail()]);
+      var newViewerRow = [new Date(), id, url, name, type, size, created, lastupdated, ownerEmail, sharingaccess, sharingpermissions, 'VIEWER', viewers[i].getEmail(), folderId, folderUrl, folderName];
+      //ss.appendRow(newViewerRow);
+      rowsToWrite.push(newViewerRow);
     }
     
-    // write folder(s) to sheet if available
-    var foldersheet = SpreadsheetApp.openByUrl(GOOGLE_SHEET_URL).getSheetByName(GOOGLE_SHEET_FOLDER_TAB_NAME);
-    while (parents.hasNext()) {
-      var folder = parents.next();
-      foldersheet.appendRow([new Date(), folder.getId(), folder.getUrl(), folder.getName(), id, size]);
-    }
     
     // Save our place by setting the token in our script properties
     // this is the magic that allows us to set this to run every minute/hour depending on the timeout value
@@ -189,6 +203,11 @@ function lookup_all_google_drive_files_using_continuation_tokens() {
     }
     
   };
+  
+  //Logger.log('rowsToWrite: ' + rowsToWrite); 
+  
+  // write collected rows arrays to the sheet in one operation (quicker than individual appends)
+  ss.getRange(ss.getLastRow() + 1, 1, rowsToWrite.length, rowsToWrite[0].length).setValues(rowsToWrite);
   
   if(!filesFromToken.hasNext()) {
    
@@ -216,3 +235,4 @@ function isTimeUp_(start) {
   var now = new Date();
   return now.getTime() - start.getTime() > TIMEOUT_VALUE_MS; // milliseconds
 }
+
