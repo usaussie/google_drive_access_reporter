@@ -4,16 +4,6 @@
 * Author: Nick Young
 * Email: usaussie@gmail.com
 *
-* Instructions: 
-* (1) Update the variables below to point to your results sheet
-* (2) Run the job_set_sheet_headers() function, which will prompt for permissions
-* (3) Accept the permissions (asking for access for your script to read/write to google drive)
-* (4) Run the job_lookup_all_google_drive_files_using_continuation_tokens() function (once, or set a trigger)
-* (5) Look in your google sheet as the function is running, and you should see results being inserted
-*
-* Extra Info: 
-* (1) Inserts "NULL" for applicable field values where owner cannot be determined (shared drives & gmail/chat attachments)
-*
 ************************************************/
 
 /*************************************************
